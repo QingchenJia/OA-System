@@ -1,0 +1,10 @@
+mysql:
+  host: 192.168.19.130
+  port: 3306
+  schema: guigu-oa
+  username: root
+  password: jqc004118
+redis:
+  host: 192.168.19.130
+  port: 6379
+  password: jqc004118
