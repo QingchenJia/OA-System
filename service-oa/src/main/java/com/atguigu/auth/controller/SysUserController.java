@@ -4,6 +4,7 @@ import com.atguigu.auth.service.SysUserService;
 import com.atguigu.common.result.Result;
 import com.atguigu.model.system.SysUser;
 import com.atguigu.vo.system.SysUserQueryVo;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.github.xiaoymin.knife4j.annotations.ApiSupport;
 import io.swagger.annotations.Api;
@@ -52,6 +53,17 @@ public class SysUserController {
     @DeleteMapping("/remove/{id}")
     public Result<?> remove(@PathVariable Long id) {
         sysUserService.removeById(id);
+        return Result.ok();
+    }
+
+    @ApiOperation(value = "更新状态")
+    @GetMapping("/updateStatus/{id}/{status}")
+    public Result<?> updateStatus(@PathVariable Long id, @PathVariable Integer status) {
+        LambdaUpdateWrapper<SysUser> updateWrapper = new LambdaUpdateWrapper<>();
+        updateWrapper.set(SysUser::getStatus, status)
+                .eq(SysUser::getId, id);
+        sysUserService.update(updateWrapper);
+
         return Result.ok();
     }
 }

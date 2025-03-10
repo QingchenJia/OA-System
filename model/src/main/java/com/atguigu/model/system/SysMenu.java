@@ -57,7 +57,7 @@ public class SysMenu extends BaseEntity {
     @TableField(exist = false)
     private List<SysMenu> children;
 
-    //是否选中
+    // 是否选中
     @TableField(exist = false)
     private boolean isSelect;
 }
