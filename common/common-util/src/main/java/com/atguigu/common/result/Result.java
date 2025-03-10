@@ -14,24 +14,24 @@ public class Result<T> {
     private Result() {
     }
 
-    //封装返回是数据
+    // 封装返回数据
     public static <T> Result<T> build(T body, ResultCodeEnum resultCodeEnum) {
         Result<T> result = new Result<>();
 
-        //封装数据
+        // 封装数据
         if (body != null) {
             result.setData(body);
         }
 
-        //状态码
+        // 状态码
         result.setCode(resultCodeEnum.getCode());
 
-        //返回信息
+        // 返回信息
         result.setMessage(resultCodeEnum.getMessage());
         return result;
     }
 
-    //成功
+    // 成功
     public static <T> Result<T> ok() {
         return build(null, ResultCodeEnum.SUCCESS);
     }
@@ -40,7 +40,7 @@ public class Result<T> {
         return build(data, ResultCodeEnum.SUCCESS);
     }
 
-    //失败
+    // 失败
     public static <T> Result<T> fail() {
         return build(null, ResultCodeEnum.FAIL);
     }
