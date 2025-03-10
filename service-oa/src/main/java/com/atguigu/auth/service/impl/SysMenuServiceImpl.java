@@ -2,15 +2,26 @@ package com.atguigu.auth.service.impl;
 
 import com.atguigu.auth.mapper.SysMenuMapper;
 import com.atguigu.auth.service.SysMenuService;
+import com.atguigu.auth.service.SysRoleMenuService;
+import com.atguigu.common.exception.CustomException;
 import com.atguigu.model.system.SysMenu;
+import com.atguigu.model.system.SysRoleMenu;
+import com.atguigu.vo.system.AssignMenuVo;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import javax.annotation.Resource;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> implements SysMenuService {
+    @Resource
+    private SysRoleMenuService sysRoleMenuService;
+
     /**
      * 根据系统菜单数据生成菜单树
      * <p>
@@ -28,6 +39,102 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
 
         // 调用generateMenuTree方法生成菜单树并返回
         return generateMenuTree(menuTree, sysMenus);
+    }
+
+    /**
+     * 根据菜单ID删除菜单及其关联信息
+     * <p>
+     * 此方法首先检查给定菜单ID的菜单是否包含子菜单如果包含子菜单，则抛出异常，防止层级断裂
+     * 如果没有子菜单，则直接调用删除方法，移除该菜单项
+     *
+     * @param id 要删除的菜单的ID
+     * @throws CustomException 如果当前菜单层级包含子菜单时抛出
+     */
+    @Override
+    public void removeByMenuId(Long id) {
+        // 创建查询条件，检查是否存在子菜单
+        LambdaQueryWrapper<SysMenu> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(SysMenu::getParentId, id);
+        // 执行查询，获取子菜单数量
+        int count = count(queryWrapper);
+
+        // 如果存在子菜单，抛出异常，不允许删除
+        if (count > 0) {
+            throw new CustomException("当前菜单层级包含子菜单");
+        }
+
+        // 无子菜单，安全删除
+        removeById(id);
+    }
+
+    /**
+     * 根据角色ID获取菜单列表
+     *
+     * @param roleId 角色ID，用于查询该角色所拥有的菜单
+     * @return 返回该角色的菜单树列表
+     */
+    @Override
+    public List<SysMenu> getMenuByRoleId(Long roleId) {
+        // 创建查询条件，只获取状态为1（启用）的菜单
+        LambdaQueryWrapper<SysMenu> menuQueryWrapper = new LambdaQueryWrapper<>();
+        menuQueryWrapper.eq(SysMenu::getStatus, 1);
+
+        // 执行查询，获取所有启用的菜单
+        List<SysMenu> sysMenus = list(menuQueryWrapper);
+        // 初始化用于存储最终菜单树的列表
+        List<SysMenu> menuTree = new ArrayList<>();
+
+        // 创建查询条件，获取指定角色ID的所有角色菜单关联信息
+        LambdaQueryWrapper<SysRoleMenu> roleMenuQueryWrapper = new LambdaQueryWrapper<>();
+        roleMenuQueryWrapper.eq(SysRoleMenu::getRoleId, roleId);
+        List<SysRoleMenu> sysRoleMenus = sysRoleMenuService.list(roleMenuQueryWrapper);
+
+        // 从角色菜单关联信息中提取菜单ID列表
+        List<Long> sysMenuIds = sysRoleMenus.stream()
+                .map(SysRoleMenu::getMenuId)
+                .collect(Collectors.toList());
+
+        // 遍历所有菜单，设置菜单的选中状态
+        sysMenus.forEach(sysMenu -> sysMenu.setSelect(sysMenuIds.contains(sysMenu.getId())));
+
+        // 根据处理后的菜单列表生成菜单树，并返回
+        return generateMenuTree(menuTree, sysMenus);
+    }
+
+    /**
+     * 分配菜单项给角色
+     * 此方法首先删除角色已有的所有菜单项，然后根据新的分配列表重新插入
+     * 使用了事务注解，确保操作的原子性
+     *
+     * @param assignMenuVo 包含角色ID和菜单项ID列表的封装对象
+     */
+    @Override
+    @Transactional
+    public void doAssign(AssignMenuVo assignMenuVo) {
+        // 获取角色ID
+        Long roleId = assignMenuVo.getRoleId();
+        // 获取菜单项ID列表
+        List<Long> menuIdList = assignMenuVo.getMenuIdList();
+
+        // 创建查询条件，用于删除角色已有的所有菜单项
+        LambdaQueryWrapper<SysRoleMenu> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(SysRoleMenu::getRoleId, roleId);
+        // 删除角色已有的所有菜单项
+        sysRoleMenuService.remove(queryWrapper);
+
+        // 将新的菜单项ID列表转换为SysRoleMenu对象列表
+        List<SysRoleMenu> sysRoleMenus = menuIdList.stream()
+                .map(menuId -> {
+                    SysRoleMenu sysRoleMenu = new SysRoleMenu();
+                    sysRoleMenu.setRoleId(roleId);
+                    sysRoleMenu.setMenuId(menuId);
+
+                    return sysRoleMenu;
+                })
+                .collect(Collectors.toList());
+
+        // 批量插入新的菜单项
+        sysRoleMenuService.saveBatch(sysRoleMenus);
     }
 
     /**

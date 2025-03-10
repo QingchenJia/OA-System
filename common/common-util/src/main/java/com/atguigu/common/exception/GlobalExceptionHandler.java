@@ -17,6 +17,6 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(CustomException.class)
     public Result<?> customException(CustomException ce) {
         log.warn(ce.getMessage());
-        return Result.fail();
+        return Result.fail(ce.getMessage());
     }
 }
