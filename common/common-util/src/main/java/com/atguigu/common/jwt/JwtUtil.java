@@ -1,9 +1,12 @@
 package com.atguigu.common.jwt;
 
+import com.atguigu.common.exception.CustomException;
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.JwtParser;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import org.apache.commons.lang3.StringUtils;
 
 import javax.crypto.SecretKey;
 import java.util.Date;
@@ -50,14 +53,25 @@ public class JwtUtil {
      * @return LoginUser对象，其中包含了从令牌中解析出的用户ID和用户名
      */
     public static LoginUser parseToken(String token) {
+        // 检查令牌是否为空，如果为空则抛出异常
+        if (StringUtils.isBlank(token)) {
+            throw new CustomException("token不能为空");
+        }
+
         // 创建JWT解析器，并使用预定义的密钥进行签名验证
         JwtParser jwtParser = Jwts.parser()
                 .verifyWith(secretKey)
                 .build();
 
-        // 使用JWT解析器解析传入的令牌，并获取其中的声明（claims）
-        Claims claims = jwtParser.parseSignedClaims(token)
-                .getPayload();
+        Claims claims = null;
+        try {
+            // 使用JWT解析器解析传入的令牌，并获取其中的声明（claims）
+            claims = jwtParser.parseSignedClaims(token)
+                    .getPayload();
+        } catch (JwtException e) {
+            // 如果解析过程中出现异常，说明令牌无效，抛出运行时异常
+            throw new RuntimeException("token无效");
+        }
 
         // 从声明中获取用户ID和用户名，并将其转换为相应的类型
         Long id = Long.valueOf(claims.get("id").toString());
